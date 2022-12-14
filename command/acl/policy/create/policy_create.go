@@ -50,9 +50,6 @@ func (c *cmd) init() {
 	c.flags.StringVar(&c.rules, "rules", "", "The policy rules. May be prefixed with '@' "+
 		"to indicate that the value is a file path to load the rules from. '-' may also be "+
 		"given to indicate that the rules are available on stdin")
-	c.flags.StringVar(&c.fromToken, "from-token", "", "The legacy token to retrieve the rules "+
-		"for when creating this policy. When this is specified no other rules should be given. "+
-		"Similar to the -rules option the token to use can be loaded from stdin or from a file")
 	c.flags.BoolVar(&c.tokenIsSecret, "token-secret", false, "Indicates the token provided with "+
 		"-from-token is a SecretID and not an AccessorID")
 	c.flags.StringVar(
@@ -147,11 +144,5 @@ Usage: consul acl policy create -name NAME [options]
                                    -datacenter "dc1" \
                                    -datacenter "dc2" \
                                    -rules @rules.hcl
-
-    Creation a policy from a legacy token:
-
-        $ consul acl policy create -name "legacy-policy" \
-                                   -description "Token Converted to policy" \
-                                   -from-token "c1e34113-e7ab-4451-b1a6-336ddcc58fc6"
 `
 )
