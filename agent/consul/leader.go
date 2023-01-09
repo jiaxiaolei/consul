@@ -510,7 +510,7 @@ func (s *Server) initializeACLs(ctx context.Context) error {
 		// Ignoring expiration times to avoid an insertion collision.
 		if token == nil {
 			token = &structs.ACLToken{
-				AccessorID:     structs.ACLTokenAnonymousID,
+				AccessorID:     acl.AnonymousTokenID,
 				SecretID:       anonymousToken,
 				Description:    "Anonymous Token",
 				CreateTime:     time.Now(),
