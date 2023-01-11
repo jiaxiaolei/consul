@@ -21,12 +21,15 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 		ID:             "sid",
 		EnterpriseMeta: *acl.DefaultEnterpriseMeta(),
 	}
-	uid := structs.ServiceID{
-		ID:             "upstream1",
-		EnterpriseMeta: *acl.DefaultEnterpriseMeta(),
+	uid := structs.PeeredServiceName{
+		ServiceName: structs.NewServiceName("upstream1", acl.DefaultEnterpriseMeta()),
 	}
-	uids := []structs.ServiceID{uid}
-	wildcard := structs.NewServiceID(structs.WildcardSpecifier, acl.WildcardEnterpriseMeta())
+
+	uids := []structs.ServiceID{uid.ServiceName.ToServiceID()}
+
+	wildcard := structs.PeeredServiceName{
+		ServiceName: structs.NewServiceName(structs.WildcardSpecifier, acl.WildcardEnterpriseMeta()),
+	}
 
 	localMeshGW := structs.MeshGatewayConfig{Mode: structs.MeshGatewayModeLocal}
 	remoteMeshGW := structs.MeshGatewayConfig{Mode: structs.MeshGatewayModeRemote}
@@ -361,7 +364,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 								},
 								Overrides: []*structs.UpstreamConfig{
 									{
-										Name:        uid.ID,
+										Name:        uid.ServiceName.Name,
 										MeshGateway: remoteMeshGW, // applied 3rd
 									},
 								},
@@ -473,7 +476,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			require.NoError(t, err)
 			// This is needed because map iteration is random and determines the order of some outputs.
 			sort.Slice(got.UpstreamIDConfigs, func(i, j int) bool {
-				return got.UpstreamIDConfigs[i].Upstream.ID < got.UpstreamIDConfigs[j].Upstream.ID
+				return got.UpstreamIDConfigs[i].Upstream.ServiceName.Name < got.UpstreamIDConfigs[j].Upstream.ServiceName.Name
 			})
 			require.Equal(t, tt.want, got)
 		})

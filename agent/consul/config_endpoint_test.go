@@ -1227,9 +1227,15 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 	}
 	t.Parallel()
 
-	mysql := structs.NewServiceID("mysql", structs.DefaultEnterpriseMetaInDefaultPartition())
-	cache := structs.NewServiceID("cache", structs.DefaultEnterpriseMetaInDefaultPartition())
-	wildcard := structs.NewServiceID(structs.WildcardSpecifier, structs.WildcardEnterpriseMetaInDefaultPartition())
+	cache := structs.PeeredServiceName{
+		ServiceName: structs.NewServiceName("cache", structs.DefaultEnterpriseMetaInDefaultPartition()),
+	}
+	mysql := structs.PeeredServiceName{
+		ServiceName: structs.NewServiceName("mysql", structs.DefaultEnterpriseMetaInDefaultPartition()),
+	}
+	wildcard := structs.PeeredServiceName{
+		ServiceName: structs.NewServiceName(structs.WildcardSpecifier, structs.WildcardEnterpriseMetaInDefaultPartition()),
+	}
 
 	tt := []struct {
 		name    string
@@ -1306,7 +1312,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				Name:       "api",
 				Datacenter: "dc1",
 				UpstreamIDs: []structs.ServiceID{
-					cache,
+					cache.ServiceName.ToServiceID(),
 				},
 			},
 			expect: structs.ServiceConfigResponse{
@@ -1321,10 +1327,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 						},
 					},
 					{
-						Upstream: structs.ServiceID{
-							ID:             "mysql",
-							EnterpriseMeta: *structs.DefaultEnterpriseMetaInDefaultPartition(),
-						},
+						Upstream: mysql,
 						Config: map[string]interface{}{
 							"protocol": "http",
 						},
@@ -1352,7 +1355,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 					Mode: structs.MeshGatewayModeNone,
 				},
 				UpstreamIDs: []structs.ServiceID{
-					mysql,
+					mysql.ServiceName.ToServiceID(),
 				},
 			},
 			expect: structs.ServiceConfigResponse{
@@ -1421,7 +1424,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 					Mode: structs.MeshGatewayModeNone,
 				},
 				UpstreamIDs: []structs.ServiceID{
-					mysql,
+					mysql.ServiceName.ToServiceID(),
 				},
 			},
 			expect: structs.ServiceConfigResponse{
@@ -1856,7 +1859,9 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams_Blocking(t *testing.T) {
 			},
 			UpstreamIDConfigs: []structs.OpaqueUpstreamConfig{
 				{
-					Upstream: structs.NewServiceID("bar", nil),
+					Upstream: structs.PeeredServiceName{
+						ServiceName: structs.NewServiceName("bar", nil),
+					},
 					Config: map[string]interface{}{
 						"protocol": "http",
 					},

@@ -168,7 +168,7 @@ func (e *ServiceConfigEntry) Normalize() error {
 		for _, override := range e.UpstreamConfig.Overrides {
 			err := override.NormalizeWithName(&e.EnterpriseMeta)
 			if err != nil {
-				validationErr = multierror.Append(validationErr, fmt.Errorf("error in upstream override for %s: %v", override.ServiceName(), err))
+				validationErr = multierror.Append(validationErr, fmt.Errorf("error in upstream override for %s: %v", override.PeeredServiceName(), err))
 			}
 		}
 
@@ -207,7 +207,7 @@ func (e *ServiceConfigEntry) Validate() error {
 		for _, override := range e.UpstreamConfig.Overrides {
 			err := override.ValidateWithName()
 			if err != nil {
-				validationErr = multierror.Append(validationErr, fmt.Errorf("error in upstream override for %s: %v", override.ServiceName(), err))
+				validationErr = multierror.Append(validationErr, fmt.Errorf("error in upstream override for %s: %v", override.PeeredServiceName(), err))
 			}
 		}
 
@@ -838,6 +838,8 @@ type UpstreamConfig struct {
 	Name string `json:",omitempty"`
 	// EnterpriseMeta is only accepted within a service-defaults config entry.
 	acl.EnterpriseMeta `hcl:",squash" mapstructure:",squash"`
+	// Peer is only accepted within a service-defaults config entry.
+	Peer string
 
 	// EnvoyListenerJSON is a complete override ("escape hatch") for the upstream's
 	// listener.
@@ -889,18 +891,14 @@ func (cfg UpstreamConfig) Clone() UpstreamConfig {
 	return cfg2
 }
 
-func (cfg *UpstreamConfig) ServiceID() ServiceID {
+func (cfg *UpstreamConfig) PeeredServiceName() PeeredServiceName {
 	if cfg.Name == "" {
-		return ServiceID{}
+		return PeeredServiceName{}
 	}
-	return NewServiceID(cfg.Name, &cfg.EnterpriseMeta)
-}
-
-func (cfg *UpstreamConfig) ServiceName() ServiceName {
-	if cfg.Name == "" {
-		return ServiceName{}
+	return PeeredServiceName{
+		Peer:        cfg.Peer,
+		ServiceName: NewServiceName(cfg.Name, &cfg.EnterpriseMeta),
 	}
-	return NewServiceName(cfg.Name, &cfg.EnterpriseMeta)
 }
 
 func (cfg UpstreamConfig) MergeInto(dst map[string]interface{}) {
@@ -1140,21 +1138,11 @@ func (ul UpstreamLimits) Validate() error {
 }
 
 type OpaqueUpstreamConfig struct {
-	Upstream ServiceID
+	Upstream PeeredServiceName
 	Config   map[string]interface{}
 }
 
 type OpaqueUpstreamConfigs []OpaqueUpstreamConfig
-
-func (configs OpaqueUpstreamConfigs) GetUpstreamConfig(sid ServiceID) (config map[string]interface{}, found bool) {
-	for _, usconf := range configs {
-		if usconf.Upstream.Matches(sid) {
-			return usconf.Config, true
-		}
-	}
-
-	return nil, false
-}
 
 type ServiceConfigResponse struct {
 	ProxyConfig       map[string]interface{}

@@ -420,7 +420,9 @@ func TestServiceManager_PersistService_API(t *testing.T) {
 			},
 			UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
 				structs.OpaqueUpstreamConfig{
-					Upstream: structs.NewServiceID("redis", nil),
+					Upstream: structs.PeeredServiceName{
+						ServiceName: structs.NewServiceName("redis", nil),
+					},
 					Config: map[string]interface{}{
 						"protocol": "tcp",
 					},
@@ -468,7 +470,9 @@ func TestServiceManager_PersistService_API(t *testing.T) {
 			},
 			UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
 				structs.OpaqueUpstreamConfig{
-					Upstream: structs.NewServiceID("redis", nil),
+					Upstream: structs.PeeredServiceName{
+						ServiceName: structs.NewServiceName("redis", nil),
+					},
 					Config: map[string]interface{}{
 						"protocol": "tcp",
 					},
@@ -647,7 +651,9 @@ func TestServiceManager_PersistService_ConfigFiles(t *testing.T) {
 			},
 			UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
 				structs.OpaqueUpstreamConfig{
-					Upstream: structs.NewServiceID("redis", nil),
+					Upstream: structs.PeeredServiceName{
+						ServiceName: structs.NewServiceName("redis", nil),
+					},
 					Config: map[string]interface{}{
 						"protocol": "tcp",
 					},

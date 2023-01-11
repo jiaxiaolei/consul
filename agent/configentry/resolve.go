@@ -113,7 +113,7 @@ func ComputeResolvedServiceConfig(
 	// Upstreams can come from:
 	// - Explicitly from proxy registrations, and therefore as an argument to this RPC endpoint
 	// - Implicitly from centralized upstream config in service-defaults
-	seenUpstreams := map[structs.ServiceID]struct{}{}
+	seenUpstreams := map[structs.PeeredServiceName]struct{}{}
 
 	var (
 		noUpstreamArgs = len(upstreamIDs) == 0 && len(args.Upstreams) == 0
@@ -132,17 +132,20 @@ func ComputeResolvedServiceConfig(
 
 	// First store all upstreams that were provided in the request
 	for _, sid := range upstreamIDs {
-		if _, ok := seenUpstreams[sid]; !ok {
-			seenUpstreams[sid] = struct{}{}
+		psn := structs.PeeredServiceName{
+			ServiceName: structs.NewServiceName(sid.ID, &sid.EnterpriseMeta),
+		}
+		if _, ok := seenUpstreams[psn]; !ok {
+			seenUpstreams[psn] = struct{}{}
 		}
 	}
 
 	// Then store upstreams inferred from service-defaults and mapify the overrides.
 	var (
-		upstreamOverrides = make(map[structs.ServiceID]*structs.UpstreamConfig)
+		upstreamOverrides = make(map[structs.PeeredServiceName]*structs.UpstreamConfig)
 		upstreamDefaults  *structs.UpstreamConfig
 		// resolvedConfigs stores the opaque config map for each upstream and is keyed on the upstream's ID.
-		resolvedConfigs = make(map[structs.ServiceID]map[string]interface{})
+		resolvedConfigs = make(map[structs.PeeredServiceName]map[string]interface{})
 	)
 	if serviceConf != nil && serviceConf.UpstreamConfig != nil {
 		for i, override := range serviceConf.UpstreamConfig.Overrides {
@@ -156,8 +159,9 @@ func ComputeResolvedServiceConfig(
 				)
 				continue // skip this impossible condition
 			}
-			seenUpstreams[override.ServiceID()] = struct{}{}
-			upstreamOverrides[override.ServiceID()] = override
+			psn := override.PeeredServiceName()
+			seenUpstreams[psn] = struct{}{}
+			upstreamOverrides[psn] = override
 		}
 		if serviceConf.UpstreamConfig.Defaults != nil {
 			upstreamDefaults = serviceConf.UpstreamConfig.Defaults
@@ -175,7 +179,9 @@ func ComputeResolvedServiceConfig(
 				cfgMap["mesh_gateway"] = args.MeshGateway
 			}
 
-			wildcard := structs.NewServiceID(structs.WildcardSpecifier, args.WithWildcardNamespace())
+			wildcard := structs.PeeredServiceName{
+				ServiceName: structs.NewServiceName(structs.WildcardSpecifier, args.WithWildcardNamespace()),
+			}
 			resolvedConfigs[wildcard] = cfgMap
 		}
 	}
@@ -190,9 +196,7 @@ func ComputeResolvedServiceConfig(
 		// 	  (how the downstream wants to address it)
 		protocol := proxyConfGlobalProtocol
 
-		upstreamSvcDefaults := entries.GetServiceDefaults(
-			structs.NewServiceID(upstream.ID, &upstream.EnterpriseMeta),
-		)
+		upstreamSvcDefaults := entries.GetServiceDefaults(upstream.ServiceName.ToServiceID())
 		if upstreamSvcDefaults != nil {
 			if upstreamSvcDefaults.Protocol != "" {
 				protocol = upstreamSvcDefaults.Protocol
@@ -249,12 +253,13 @@ func ComputeResolvedServiceConfig(
 		return &thisReply, nil
 	}
 
+	// TODO can we remove these legacy upstreams?
 	if legacyUpstreams {
 		// For legacy upstreams we return a map that is only keyed on the string ID, since they precede namespaces
 		thisReply.UpstreamConfigs = make(map[string]map[string]interface{})
 
 		for us, conf := range resolvedConfigs {
-			thisReply.UpstreamConfigs[us.ID] = conf
+			thisReply.UpstreamConfigs[us.ServiceName.Name] = conf
 		}
 
 	} else {

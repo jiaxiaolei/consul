@@ -37,7 +37,11 @@ func MergeNodeServiceWithCentralConfig(
 		// so we can learn about their configs.
 		for _, us := range ns.Proxy.Upstreams {
 			if us.DestinationType == "" || us.DestinationType == structs.UpstreamDestTypeService {
-				sid := us.DestinationID()
+				// Peer services do not have service-defaults config entries to fetch.
+				if us.DestinationPeer != "" {
+					continue
+				}
+				sid := us.DestinationID().ServiceName.ToServiceID()
 				sid.EnterpriseMeta.Merge(&ns.EnterpriseMeta)
 				upstreams = append(upstreams, sid)
 			}
@@ -149,7 +153,7 @@ func MergeServiceConfig(defaults *structs.ServiceConfigResponse, service *struct
 	}
 
 	// remoteUpstreams contains synthetic Upstreams generated from central config (service-defaults.UpstreamConfigs).
-	remoteUpstreams := make(map[structs.ServiceID]structs.Upstream)
+	remoteUpstreams := make(map[structs.PeeredServiceName]structs.Upstream)
 
 	for _, us := range defaults.UpstreamIDConfigs {
 		parsed, err := structs.ParseUpstreamConfigNoDefaults(us.Config)
@@ -158,9 +162,10 @@ func MergeServiceConfig(defaults *structs.ServiceConfigResponse, service *struct
 		}
 
 		remoteUpstreams[us.Upstream] = structs.Upstream{
-			DestinationNamespace: us.Upstream.NamespaceOrDefault(),
-			DestinationPartition: us.Upstream.PartitionOrDefault(),
-			DestinationName:      us.Upstream.ID,
+			DestinationNamespace: us.Upstream.ServiceName.NamespaceOrDefault(),
+			DestinationPartition: us.Upstream.ServiceName.PartitionOrDefault(),
+			DestinationName:      us.Upstream.ServiceName.Name,
+			DestinationPeer:      us.Upstream.Peer,
 			Config:               us.Config,
 			MeshGateway:          parsed.MeshGateway,
 			CentrallyConfigured:  true,
@@ -170,7 +175,7 @@ func MergeServiceConfig(defaults *structs.ServiceConfigResponse, service *struct
 	// localUpstreams stores the upstreams seen from the local registration so that we can merge in the synthetic entries.
 	// In transparent proxy mode ns.Proxy.Upstreams will likely be empty because users do not need to define upstreams explicitly.
 	// So to store upstream-specific flags from central config, we add entries to ns.Proxy.Upstreams with those values.
-	localUpstreams := make(map[structs.ServiceID]struct{})
+	localUpstreams := make(map[structs.PeeredServiceName]struct{})
 
 	// Merge upstream defaults into the local registration
 	for i := range ns.Proxy.Upstreams {

@@ -326,7 +326,11 @@ func makeConfigRequest(bd BaseDeps, addReq AddServiceRequest) *structs.ServiceCo
 		// learn about their configs.
 		for _, us := range ns.Proxy.Upstreams {
 			if us.DestinationType == "" || us.DestinationType == structs.UpstreamDestTypeService {
-				sid := us.DestinationID()
+				// Peer services do not have service-defaults config entries to fetch.
+				if us.DestinationPeer != "" {
+					continue
+				}
+				sid := us.DestinationID().ServiceName.ToServiceID()
 				sid.EnterpriseMeta.Merge(&ns.EnterpriseMeta)
 				upstreams = append(upstreams, sid)
 			}
