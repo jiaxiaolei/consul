@@ -48,3 +48,4 @@ load helpers
   [ "$PUB" = "envoy.filters.network.rbac,envoy.filters.network.tcp_proxy" ]
   [ "$UPS" = "envoy.filters.network.tcp_proxy" ]
 }
+up
