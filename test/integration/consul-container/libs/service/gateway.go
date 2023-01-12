@@ -142,3 +142,7 @@ func NewGatewayService(ctx context.Context, name string, kind string, node libno
 
 	return &gatewayContainer{container: container, ip: ip, port: mappedPort.Int(), serviceName: name}, nil
 }
+
+func (g gatewayContainer) GetAdminAddr() (string, int) {
+	return "localhost", 0
+}

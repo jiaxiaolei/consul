@@ -79,7 +79,7 @@ load helpers
 }
 
 @test "s2 proxy should have been configured with http rbac filters" {
-  HTTP_FILTERS=$(get_envoy_http_filters localhost:19001)
+  HTTP_FILTERS=$(get_envoy_listener_filters localhost:19001)
   PUB=$(echo "$HTTP_FILTERS" | grep -E "^public_listener:" | cut -f 2 -d ' ')
 
   echo "HTTP_FILTERS = $HTTP_FILTERS"

@@ -192,7 +192,7 @@ func verifySidecarHasTwoRootCAs(t *testing.T, sidecar libservice.Service) {
 	}
 
 	retry.RunWith(failer(), t, func(r *retry.R) {
-		dump, err := libservice.GetEnvoyConfigDump(adminPort)
+		dump, err := libservice.GetEnvoyConfigDump(adminPort, "include_eds")
 		if err != nil {
 			r.Fatal("could not curl envoy configuration")
 		}

@@ -141,3 +141,7 @@ func NewExampleService(ctx context.Context, name string, httpPort int, grpcPort 
 	fmt.Printf("Example service exposed http port %d, gRPC port %d\n", mappedHTPPPort.Int(), mappedGRPCPort.Int())
 	return &exampleContainer{container: container, ip: ip, httpPort: mappedHTPPPort.Int(), grpcPort: mappedGRPCPort.Int(), serviceName: name}, nil
 }
+
+func (g exampleContainer) GetAdminAddr() (string, int) {
+	return "localhost", 0
+}

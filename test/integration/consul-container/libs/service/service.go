@@ -14,4 +14,5 @@ type Service interface {
 	// Export a service to the peering cluster
 	Export(partition, peer string, client *api.Client) error
 	GetServiceName() string
+	GetAdminAddr() (string, int)
 }
