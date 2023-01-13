@@ -1327,8 +1327,8 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 			request: structs.ServiceConfigRequest{
 				Name:       "api",
 				Datacenter: "dc1",
-				UpstreamIDs: []structs.ServiceID{
-					cache.ServiceName.ToServiceID(),
+				UpstreamServiceNames: []structs.PeeredServiceName{
+					cache,
 				},
 			},
 			expect: structs.ServiceConfigResponse{
@@ -1370,8 +1370,8 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				MeshGateway: structs.MeshGatewayConfig{
 					Mode: structs.MeshGatewayModeNone,
 				},
-				UpstreamIDs: []structs.ServiceID{
-					mysql.ServiceName.ToServiceID(),
+				UpstreamServiceNames: []structs.PeeredServiceName{
+					mysql,
 				},
 			},
 			expect: structs.ServiceConfigResponse{
@@ -1439,8 +1439,8 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				MeshGateway: structs.MeshGatewayConfig{
 					Mode: structs.MeshGatewayModeNone,
 				},
-				UpstreamIDs: []structs.ServiceID{
-					mysql.ServiceName.ToServiceID(),
+				UpstreamServiceNames: []structs.PeeredServiceName{
+					mysql,
 				},
 			},
 			expect: structs.ServiceConfigResponse{
@@ -1502,8 +1502,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				Name:       "api",
 				Datacenter: "dc1",
 				Mode:       structs.ProxyModeTransparent,
-
-				// Empty Upstreams/UpstreamIDs
+				// Empty upstreams
 			},
 			expect: structs.ServiceConfigResponse{
 				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
@@ -1556,8 +1555,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 			request: structs.ServiceConfigRequest{
 				Name:       "api",
 				Datacenter: "dc1",
-
-				// Empty Upstreams/UpstreamIDs
+				// Empty upstreams
 			},
 			expect: structs.ServiceConfigResponse{
 				Mode: structs.ProxyModeTransparent,
@@ -1609,8 +1607,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				Name:       "api",
 				Datacenter: "dc1",
 				Mode:       structs.ProxyModeDirect,
-
-				// Empty Upstreams/UpstreamIDs
+				// Empty upstreams
 			},
 			expect: structs.ServiceConfigResponse{},
 		},
@@ -1641,6 +1638,9 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 			tc.expect.QueryMeta = out.QueryMeta
 
 			// Order of this slice is also not deterministic since it's populated from a map
+			sort.SliceStable(out.UpstreamConfigs, func(i, j int) bool {
+				return out.UpstreamConfigs[i].Upstream.String() < out.UpstreamConfigs[j].Upstream.String()
+			})
 			sort.SliceStable(out.UpstreamIDConfigs, func(i, j int) bool {
 				return out.UpstreamIDConfigs[i].Upstream.String() < out.UpstreamIDConfigs[j].Upstream.String()
 			})
@@ -1861,9 +1861,9 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams_Blocking(t *testing.T) {
 			&structs.ServiceConfigRequest{
 				Name:       "foo",
 				Datacenter: "dc1",
-				UpstreamIDs: []structs.ServiceID{
-					structs.NewServiceID("bar", nil),
-					structs.NewServiceID("other", nil),
+				UpstreamServiceNames: []structs.PeeredServiceName{
+					{ServiceName: structs.NewServiceName("bar", nil)},
+					{ServiceName: structs.NewServiceName("other", nil)},
 				},
 			},
 			&out,
