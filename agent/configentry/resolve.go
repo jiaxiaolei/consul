@@ -184,7 +184,7 @@ func ComputeResolvedServiceConfig(
 			}
 
 			wildcard := structs.PeeredServiceName{
-				Peer:        structs.WildcardSpecifier, // TODO verify this is correct. It will affect proxycfg.
+				// Peer:        structs.WildcardSpecifier, // TODO verify this is needed. It will affect proxycfg.
 				ServiceName: structs.NewServiceName(structs.WildcardSpecifier, args.WithWildcardNamespace()),
 			}
 			resolvedConfigs[wildcard] = cfgMap
