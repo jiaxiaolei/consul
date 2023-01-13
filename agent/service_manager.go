@@ -313,7 +313,7 @@ func makeConfigRequest(bd BaseDeps, addReq AddServiceRequest) *structs.ServiceCo
 		name = ns.Service
 	)
 
-	var upstreams []structs.ServiceID
+	var upstreams []structs.PeeredServiceName
 
 	// Note that only sidecar proxies should even make it here for now although
 	// later that will change to add the condition.
@@ -326,25 +326,26 @@ func makeConfigRequest(bd BaseDeps, addReq AddServiceRequest) *structs.ServiceCo
 		// learn about their configs.
 		for _, us := range ns.Proxy.Upstreams {
 			if us.DestinationType == "" || us.DestinationType == structs.UpstreamDestTypeService {
-				// Peer services do not have service-defaults config entries to fetch.
-				if us.DestinationPeer != "" {
-					continue
+				psn := us.DestinationID()
+				if psn.Peer == "" {
+					psn.ServiceName.EnterpriseMeta.Merge(&ns.EnterpriseMeta)
+				} else {
+					// Peer services should not have their namespace overwritten.
+					psn.ServiceName.EnterpriseMeta.OverridePartition(ns.EnterpriseMeta.PartitionOrDefault())
 				}
-				sid := us.DestinationID().ServiceName.ToServiceID()
-				sid.EnterpriseMeta.Merge(&ns.EnterpriseMeta)
-				upstreams = append(upstreams, sid)
+				upstreams = append(upstreams, psn)
 			}
 		}
 	}
 
 	req := &structs.ServiceConfigRequest{
-		Name:           name,
-		Datacenter:     bd.RuntimeConfig.Datacenter,
-		QueryOptions:   structs.QueryOptions{Token: addReq.token},
-		MeshGateway:    ns.Proxy.MeshGateway,
-		Mode:           ns.Proxy.Mode,
-		UpstreamIDs:    upstreams,
-		EnterpriseMeta: ns.EnterpriseMeta,
+		Name:                 name,
+		Datacenter:           bd.RuntimeConfig.Datacenter,
+		QueryOptions:         structs.QueryOptions{Token: addReq.token},
+		MeshGateway:          ns.Proxy.MeshGateway,
+		Mode:                 ns.Proxy.Mode,
+		UpstreamServiceNames: upstreams,
+		EnterpriseMeta:       ns.EnterpriseMeta,
 	}
 	if req.QueryOptions.Token == "" {
 		req.QueryOptions.Token = bd.Tokens.AgentToken()
