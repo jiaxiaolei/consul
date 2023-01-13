@@ -11,8 +11,6 @@ import (
 
 func ComputeResolvedServiceConfig(
 	args *structs.ServiceConfigRequest,
-	upstreamIDs []structs.ServiceID,
-	legacyUpstreams bool,
 	entries *ResolvedServiceConfigSet,
 	logger hclog.Logger,
 ) (*structs.ServiceConfigResponse, error) {
@@ -116,7 +114,7 @@ func ComputeResolvedServiceConfig(
 	seenUpstreams := map[structs.PeeredServiceName]struct{}{}
 
 	var (
-		noUpstreamArgs = len(upstreamIDs) == 0 && len(args.Upstreams) == 0
+		noUpstreamArgs = len(args.UpstreamServiceNames) == 0 && len(args.UpstreamIDs) == 0
 
 		// Check the args and the resolved value. If it was exclusively set via a config entry, then args.Mode
 		// will never be transparent because the service config request does not use the resolved value.
@@ -131,13 +129,19 @@ func ComputeResolvedServiceConfig(
 	}
 
 	// First store all upstreams that were provided in the request
-	for _, sid := range upstreamIDs {
-		psn := structs.PeeredServiceName{
-			ServiceName: structs.NewServiceName(sid.ID, &sid.EnterpriseMeta),
-		}
+	for _, psn := range args.UpstreamServiceNames {
 		if _, ok := seenUpstreams[psn]; !ok {
 			seenUpstreams[psn] = struct{}{}
 		}
+	}
+	// For 1.14, service-defaults overrides would apply to peer upstreams incorrectly
+	// because the config merging logic was oblivious to the concept of a peer.
+	// We replicate this behavior on legacy calls for backwards-compatibility.
+	for _, sid := range args.UpstreamIDs {
+		psn := structs.PeeredServiceName{
+			ServiceName: structs.NewServiceName(sid.ID, &sid.EnterpriseMeta),
+		}
+		seenUpstreams[psn] = struct{}{}
 	}
 
 	// Then store upstreams inferred from service-defaults and mapify the overrides.
@@ -180,6 +184,7 @@ func ComputeResolvedServiceConfig(
 			}
 
 			wildcard := structs.PeeredServiceName{
+				Peer:        structs.WildcardSpecifier, // TODO verify this is correct. It will affect proxycfg.
 				ServiceName: structs.NewServiceName(structs.WildcardSpecifier, args.WithWildcardNamespace()),
 			}
 			resolvedConfigs[wildcard] = cfgMap
@@ -253,20 +258,19 @@ func ComputeResolvedServiceConfig(
 		return &thisReply, nil
 	}
 
-	// TODO can we remove these legacy upstreams?
-	if legacyUpstreams {
-		// For legacy upstreams we return a map that is only keyed on the string ID, since they precede namespaces
-		thisReply.UpstreamConfigs = make(map[string]map[string]interface{})
-
-		for us, conf := range resolvedConfigs {
-			thisReply.UpstreamConfigs[us.ServiceName.Name] = conf
-		}
-
-	} else {
-		thisReply.UpstreamIDConfigs = make(structs.OpaqueUpstreamConfigs, 0, len(resolvedConfigs))
+	if len(args.UpstreamIDs) > 0 {
+		// DEPRECATED: Remove these legacy upstreams in Consul v1.16
+		thisReply.UpstreamIDConfigs = make(structs.OpaqueUpstreamConfigsDeprecated, 0, len(resolvedConfigs))
 
 		for us, conf := range resolvedConfigs {
 			thisReply.UpstreamIDConfigs = append(thisReply.UpstreamIDConfigs,
+				structs.OpaqueUpstreamConfigDeprecated{Upstream: us.ServiceName.ToServiceID(), Config: conf})
+		}
+	} else {
+		thisReply.UpstreamConfigs = make(structs.OpaqueUpstreamConfigs, 0, len(resolvedConfigs))
+
+		for us, conf := range resolvedConfigs {
+			thisReply.UpstreamConfigs = append(thisReply.UpstreamConfigs,
 				structs.OpaqueUpstreamConfig{Upstream: us, Config: conf})
 		}
 	}

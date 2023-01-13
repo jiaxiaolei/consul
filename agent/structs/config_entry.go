@@ -775,13 +775,13 @@ type ServiceConfigRequest struct {
 	// Mode indicates how the requesting proxy's listeners are dialed
 	Mode ProxyMode
 
-	UpstreamIDs []ServiceID
+	// UpstreamServiceNames is a list of upstream service names to use for resolving the service config.
+	UpstreamServiceNames []PeeredServiceName
 
 	// DEPRECATED
-	// Upstreams is a list of upstream service names to use for resolving the service config
-	// UpstreamIDs should be used instead which can encode more than just the name to
-	// uniquely identify a service.
-	Upstreams []string
+	// UpstreamIDs is a list of upstream service names to use for resolving the service config.
+	// This field does not take the peer name into consideration, so it is deprecated.
+	UpstreamIDs []ServiceID
 
 	acl.EnterpriseMeta `hcl:",squash" mapstructure:",squash"`
 	QueryOptions
@@ -789,6 +789,25 @@ type ServiceConfigRequest struct {
 
 func (s *ServiceConfigRequest) RequestDatacenter() string {
 	return s.Datacenter
+}
+
+// GetLocalUpstreamIDs returns the list of non-peer service ids for upstreams defined on this request.
+// This is often used for fetching service-defaults config entries.
+func (s *ServiceConfigRequest) GetLocalUpstreamIDs() []ServiceID {
+	var upstreams []ServiceID
+	if len(s.UpstreamIDs) > 0 {
+		// The legacy mode is mutually exclusive with the new mode, so we don't need
+		// to join the two lists together.
+		upstreams = append(upstreams, s.UpstreamIDs...)
+		return upstreams
+	}
+	for i := range s.UpstreamServiceNames {
+		u := &s.UpstreamServiceNames[i]
+		if u.Peer == "" {
+			upstreams = append(upstreams, u.ServiceName.ToServiceID())
+		}
+	}
+	return upstreams
 }
 
 func (r *ServiceConfigRequest) CacheInfo() cache.RequestInfo {
@@ -807,21 +826,21 @@ func (r *ServiceConfigRequest) CacheInfo() cache.RequestInfo {
 	// the slice would affect cache keys if we ever persist between agent restarts
 	// and change it.
 	v, err := hashstructure.Hash(struct {
-		Name              string
-		EnterpriseMeta    acl.EnterpriseMeta
-		Upstreams         []string    `hash:"set"`
-		UpstreamIDs       []ServiceID `hash:"set"`
-		MeshGatewayConfig MeshGatewayConfig
-		ProxyMode         ProxyMode
-		Filter            string
+		Name                 string
+		EnterpriseMeta       acl.EnterpriseMeta
+		UpstreamServiceNames []PeeredServiceName `hash:"set"`
+		UpstreamIDs          []ServiceID         `hash:"set"`
+		MeshGatewayConfig    MeshGatewayConfig
+		ProxyMode            ProxyMode
+		Filter               string
 	}{
-		Name:              r.Name,
-		EnterpriseMeta:    r.EnterpriseMeta,
-		Upstreams:         r.Upstreams,
-		UpstreamIDs:       r.UpstreamIDs,
-		ProxyMode:         r.Mode,
-		MeshGatewayConfig: r.MeshGateway,
-		Filter:            r.QueryOptions.Filter,
+		Name:                 r.Name,
+		EnterpriseMeta:       r.EnterpriseMeta,
+		UpstreamServiceNames: r.UpstreamServiceNames,
+		UpstreamIDs:          r.UpstreamIDs,
+		ProxyMode:            r.Mode,
+		MeshGatewayConfig:    r.MeshGateway,
+		Filter:               r.QueryOptions.Filter,
 	}, nil)
 	if err == nil {
 		// If there is an error, we don't set the key. A blank key forces
@@ -1137,17 +1156,24 @@ func (ul UpstreamLimits) Validate() error {
 	return nil
 }
 
+type OpaqueUpstreamConfigDeprecated struct {
+	Upstream ServiceID
+	Config   map[string]interface{}
+}
+type OpaqueUpstreamConfigsDeprecated []OpaqueUpstreamConfigDeprecated
+
 type OpaqueUpstreamConfig struct {
 	Upstream PeeredServiceName
 	Config   map[string]interface{}
 }
-
 type OpaqueUpstreamConfigs []OpaqueUpstreamConfig
 
 type ServiceConfigResponse struct {
-	ProxyConfig       map[string]interface{}
-	UpstreamConfigs   map[string]map[string]interface{}
-	UpstreamIDConfigs OpaqueUpstreamConfigs
+	ProxyConfig map[string]interface{}
+	// DEPRECATED: UpstreamIDConfigs field exists only for backwards-compatibility
+	// during upgrades and should be removed in Consul 1.16.
+	UpstreamIDConfigs OpaqueUpstreamConfigsDeprecated
+	UpstreamConfigs   OpaqueUpstreamConfigs
 	MeshGateway       MeshGatewayConfig      `json:",omitempty"`
 	Expose            ExposeConfig           `json:",omitempty"`
 	TransparentProxy  TransparentProxyConfig `json:",omitempty"`
@@ -1198,15 +1224,16 @@ func (r *ServiceConfigResponse) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return err
 	}
-	for k := range r.UpstreamConfigs {
-		r.UpstreamConfigs[k], err = lib.MapWalk(r.UpstreamConfigs[k])
+
+	for k := range r.UpstreamIDConfigs {
+		r.UpstreamIDConfigs[k].Config, err = lib.MapWalk(r.UpstreamIDConfigs[k].Config)
 		if err != nil {
 			return err
 		}
 	}
 
-	for k := range r.UpstreamIDConfigs {
-		r.UpstreamIDConfigs[k].Config, err = lib.MapWalk(r.UpstreamIDConfigs[k].Config)
+	for k := range r.UpstreamConfigs {
+		r.UpstreamConfigs[k].Config, err = lib.MapWalk(r.UpstreamConfigs[k].Config)
 		if err != nil {
 			return err
 		}

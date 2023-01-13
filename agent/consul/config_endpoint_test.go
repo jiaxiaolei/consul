@@ -1046,7 +1046,10 @@ func TestConfigEntry_ResolveServiceConfig(t *testing.T) {
 	args := structs.ServiceConfigRequest{
 		Name:       "foo",
 		Datacenter: s1.config.Datacenter,
-		Upstreams:  []string{"bar", "baz"},
+		UpstreamServiceNames: []structs.PeeredServiceName{
+			{ServiceName: structs.NewServiceName("bar", nil)},
+			{ServiceName: structs.NewServiceName("baz", nil)},
+		},
 	}
 	var out structs.ServiceConfigResponse
 	require.NoError(t, msgpackrpc.CallWithCodec(codec, "ConfigEntry.ResolveServiceConfig", &args, &out))
@@ -1056,9 +1059,14 @@ func TestConfigEntry_ResolveServiceConfig(t *testing.T) {
 			"foo":      int64(1),
 			"protocol": "http",
 		},
-		UpstreamConfigs: map[string]map[string]interface{}{
-			"bar": {
-				"protocol": "grpc",
+		UpstreamConfigs: structs.OpaqueUpstreamConfigs{
+			{
+				Upstream: structs.PeeredServiceName{
+					ServiceName: structs.NewServiceName("bar", nil),
+				},
+				Config: map[string]interface{}{
+					"protocol": "grpc",
+				},
 			},
 		},
 		Meta: map[string]string{"foo": "bar"},
@@ -1244,7 +1252,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 		expect  structs.ServiceConfigResponse
 	}{
 		{
-			name: "upstream config entries from Upstreams and service-defaults",
+			name: "upstream config entries from UpstreamIDs and service-defaults",
 			entries: []structs.ConfigEntry{
 				&structs.ProxyConfigEntry{
 					Kind: structs.ProxyDefaults,
@@ -1269,24 +1277,32 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 			request: structs.ServiceConfigRequest{
 				Name:       "api",
 				Datacenter: "dc1",
-				Upstreams:  []string{"cache"},
+				UpstreamIDs: []structs.ServiceID{
+					structs.NewServiceID("cache", nil),
+				},
 			},
 			expect: structs.ServiceConfigResponse{
 				ProxyConfig: map[string]interface{}{
 					"protocol": "grpc",
 				},
-				UpstreamConfigs: map[string]map[string]interface{}{
-					"mysql": {
-						"protocol": "http",
+				UpstreamIDConfigs: structs.OpaqueUpstreamConfigsDeprecated{
+					{
+						Upstream: structs.NewServiceID("cache", nil),
+						Config: map[string]interface{}{
+							"protocol": "grpc",
+						},
 					},
-					"cache": {
-						"protocol": "grpc",
+					{
+						Upstream: structs.NewServiceID("mysql", nil),
+						Config: map[string]interface{}{
+							"protocol": "http",
+						},
 					},
 				},
 			},
 		},
 		{
-			name: "upstream config entries from UpstreamIDs and service-defaults",
+			name: "upstream config entries from UpstreamServiceNames and service-defaults",
 			entries: []structs.ConfigEntry{
 				&structs.ProxyConfigEntry{
 					Kind: structs.ProxyDefaults,
@@ -1319,7 +1335,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				ProxyConfig: map[string]interface{}{
 					"protocol": "grpc",
 				},
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: cache,
 						Config: map[string]interface{}{
@@ -1359,7 +1375,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				},
 			},
 			expect: structs.ServiceConfigResponse{
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -1431,7 +1447,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				ProxyConfig: map[string]interface{}{
 					"protocol": "udp",
 				},
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -1490,7 +1506,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 				// Empty Upstreams/UpstreamIDs
 			},
 			expect: structs.ServiceConfigResponse{
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -1549,7 +1565,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams(t *testing.T) {
 					OutboundListenerPort: 10101,
 					DialedDirectly:       true,
 				},
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -1857,7 +1873,7 @@ func TestConfigEntry_ResolveServiceConfig_Upstreams_Blocking(t *testing.T) {
 			ProxyConfig: map[string]interface{}{
 				"protocol": "http",
 			},
-			UpstreamIDConfigs: []structs.OpaqueUpstreamConfig{
+			UpstreamConfigs: []structs.OpaqueUpstreamConfig{
 				{
 					Upstream: structs.PeeredServiceName{
 						ServiceName: structs.NewServiceName("bar", nil),
@@ -2044,36 +2060,49 @@ func TestConfigEntry_ResolveServiceConfig_UpstreamProxyDefaultsProtocol(t *testi
 		Protocol: "grpc",
 	}))
 
+	id := func(s string) structs.PeeredServiceName {
+		return structs.PeeredServiceName{
+			ServiceName: structs.NewServiceName(s, nil),
+		}
+	}
 	args := structs.ServiceConfigRequest{
 		Name:       "foo",
 		Datacenter: s1.config.Datacenter,
-		Upstreams:  []string{"bar", "other", "alreadyprotocol", "dne"},
+		UpstreamServiceNames: []structs.PeeredServiceName{
+			id("bar"), id("other"), id("alreadyprotocol"), id("dne"),
+		},
 	}
 	var out structs.ServiceConfigResponse
 	require.NoError(t, msgpackrpc.CallWithCodec(codec, "ConfigEntry.ResolveServiceConfig", &args, &out))
 
-	expected := structs.ServiceConfigResponse{
-		ProxyConfig: map[string]interface{}{
-			"protocol": "http",
+	expected := structs.OpaqueUpstreamConfigs{
+		{
+			Upstream: id("bar"),
+			Config: map[string]interface{}{
+				"protocol": "http",
+			},
 		},
-		UpstreamConfigs: map[string]map[string]interface{}{
-			"bar": {
+		{
+			Upstream: id("other"),
+			Config: map[string]interface{}{
 				"protocol": "http",
 			},
-			"other": {
+		},
+		{
+			Upstream: id("dne"),
+			Config: map[string]interface{}{
 				"protocol": "http",
 			},
-			"dne": {
-				"protocol": "http",
-			},
-			"alreadyprotocol": {
+		},
+		{
+			Upstream: id("alreadyprotocol"),
+			Config: map[string]interface{}{
 				"protocol": "grpc",
 			},
 		},
-		// Don't know what this is deterministically
-		QueryMeta: out.QueryMeta,
 	}
-	require.Equal(t, expected, out)
+	require.ElementsMatch(t, expected, out.UpstreamConfigs)
+	require.Equal(t, map[string]interface{}{"protocol": "http"}, out.ProxyConfig)
 }
 
 func TestConfigEntry_ResolveServiceConfig_ProxyDefaultsProtocol_UsedForAllUpstreams(t *testing.T) {
@@ -2099,10 +2128,13 @@ func TestConfigEntry_ResolveServiceConfig_ProxyDefaultsProtocol_UsedForAllUpstre
 		},
 	}))
 
+	psn := structs.PeeredServiceName{
+		ServiceName: structs.NewServiceName("bar", nil),
+	}
 	args := structs.ServiceConfigRequest{
-		Name:       "foo",
-		Datacenter: s1.config.Datacenter,
-		Upstreams:  []string{"bar"},
+		Name:                 "foo",
+		Datacenter:           s1.config.Datacenter,
+		UpstreamServiceNames: []structs.PeeredServiceName{psn},
 	}
 	var out structs.ServiceConfigResponse
 	require.NoError(t, msgpackrpc.CallWithCodec(codec, "ConfigEntry.ResolveServiceConfig", &args, &out))
@@ -2111,9 +2143,12 @@ func TestConfigEntry_ResolveServiceConfig_ProxyDefaultsProtocol_UsedForAllUpstre
 		ProxyConfig: map[string]interface{}{
 			"protocol": "http",
 		},
-		UpstreamConfigs: map[string]map[string]interface{}{
-			"bar": {
-				"protocol": "http",
+		UpstreamConfigs: structs.OpaqueUpstreamConfigs{
+			{
+				Upstream: psn,
+				Config: map[string]interface{}{
+					"protocol": "http",
+				},
 			},
 		},
 		// Don't know what this is deterministically
@@ -2253,7 +2288,10 @@ func TestConfigEntry_ResolveServiceConfigNoConfig(t *testing.T) {
 	args := structs.ServiceConfigRequest{
 		Name:       "foo",
 		Datacenter: s1.config.Datacenter,
-		Upstreams:  []string{"bar", "baz"},
+		UpstreamServiceNames: []structs.PeeredServiceName{
+			{ServiceName: structs.NewServiceName("bar", nil)},
+			{ServiceName: structs.NewServiceName("baz", nil)},
+		},
 	}
 	var out structs.ServiceConfigResponse
 	require.NoError(t, msgpackrpc.CallWithCodec(codec, "ConfigEntry.ResolveServiceConfig", &args, &out))

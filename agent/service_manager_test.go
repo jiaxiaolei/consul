@@ -418,7 +418,7 @@ func TestServiceManager_PersistService_API(t *testing.T) {
 				"foo":      1,
 				"protocol": "http",
 			},
-			UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+			UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 				structs.OpaqueUpstreamConfig{
 					Upstream: structs.PeeredServiceName{
 						ServiceName: structs.NewServiceName("redis", nil),
@@ -468,7 +468,7 @@ func TestServiceManager_PersistService_API(t *testing.T) {
 				"foo":      1,
 				"protocol": "http",
 			},
-			UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+			UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 				structs.OpaqueUpstreamConfig{
 					Upstream: structs.PeeredServiceName{
 						ServiceName: structs.NewServiceName("redis", nil),
@@ -649,7 +649,7 @@ func TestServiceManager_PersistService_ConfigFiles(t *testing.T) {
 				"foo":      1,
 				"protocol": "http",
 			},
-			UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+			UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 				structs.OpaqueUpstreamConfig{
 					Upstream: structs.PeeredServiceName{
 						ServiceName: structs.NewServiceName("redis", nil),

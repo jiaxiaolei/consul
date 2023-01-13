@@ -287,7 +287,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "new config fields",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{
@@ -355,7 +355,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "remote upstream config expands local upstream list in transparent mode",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{
@@ -427,7 +427,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "remote upstream config not added to local upstream list outside of transparent mode",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{
@@ -482,7 +482,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "upstream mode from remote defaults overrides local default",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{
@@ -539,7 +539,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "mode in local upstream config overrides all",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{
@@ -599,7 +599,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "peering upstreams ignore protocol overrides",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{
@@ -644,7 +644,7 @@ func Test_MergeServiceConfig_UpstreamOverrides(t *testing.T) {
 			name: "peering upstreams ignore protocol overrides with unset value",
 			args: args{
 				defaults: &structs.ServiceConfigResponse{
-					UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+					UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 						{
 							Upstream: zapUpstreamId,
 							Config: map[string]interface{}{

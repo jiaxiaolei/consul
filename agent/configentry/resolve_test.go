@@ -12,9 +12,8 @@ import (
 
 func Test_ComputeResolvedServiceConfig(t *testing.T) {
 	type args struct {
-		scReq       *structs.ServiceConfigRequest
-		upstreamIDs []structs.ServiceID
-		entries     *ResolvedServiceConfigSet
+		scReq   *structs.ServiceConfigRequest
+		entries *ResolvedServiceConfigSet
 	}
 
 	sid := structs.ServiceID{
@@ -25,7 +24,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 		ServiceName: structs.NewServiceName("upstream1", acl.DefaultEnterpriseMeta()),
 	}
 
-	uids := []structs.ServiceID{uid.ServiceName.ToServiceID()}
+	uids := []structs.PeeredServiceName{uid}
 
 	wildcard := structs.PeeredServiceName{
 		ServiceName: structs.NewServiceName(structs.WildcardSpecifier, acl.WildcardEnterpriseMeta()),
@@ -108,10 +107,9 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			name: "proxy upstream mesh-gateway inherits proxy-defaults",
 			args: args{
 				scReq: &structs.ServiceConfigRequest{
-					Name:        "sid",
-					UpstreamIDs: uids,
+					Name:                 "sid",
+					UpstreamServiceNames: uids,
 				},
-				upstreamIDs: uids,
 				entries: &ResolvedServiceConfigSet{
 					ProxyDefaults: map[string]*structs.ProxyConfigEntry{
 						acl.DefaultEnterpriseMeta().PartitionOrDefault(): {
@@ -122,7 +120,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			},
 			want: &structs.ServiceConfigResponse{
 				MeshGateway: remoteMeshGW,
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: uid,
 						Config: map[string]interface{}{
@@ -192,10 +190,9 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			name: "proxy upstream mesh-gateway inherits service-defaults",
 			args: args{
 				scReq: &structs.ServiceConfigRequest{
-					Name:        "sid",
-					UpstreamIDs: uids,
+					Name:                 "sid",
+					UpstreamServiceNames: uids,
 				},
-				upstreamIDs: uids,
 				entries: &ResolvedServiceConfigSet{
 					ProxyDefaults: map[string]*structs.ProxyConfigEntry{
 						acl.DefaultEnterpriseMeta().PartitionOrDefault(): {
@@ -211,7 +208,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			},
 			want: &structs.ServiceConfigResponse{
 				MeshGateway: noneMeshGW, // service-defaults has a higher precedence.
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: uid,
 						Config: map[string]interface{}{
@@ -247,7 +244,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			},
 			want: &structs.ServiceConfigResponse{
 				MeshGateway: localMeshGW,
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -262,10 +259,9 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			name: "proxy upstream mesh-gateway inherits upstream defaults",
 			args: args{
 				scReq: &structs.ServiceConfigRequest{
-					Name:        "sid",
-					UpstreamIDs: uids,
+					Name:                 "sid",
+					UpstreamServiceNames: uids,
 				},
-				upstreamIDs: uids,
 				entries: &ResolvedServiceConfigSet{
 					ProxyDefaults: map[string]*structs.ProxyConfigEntry{
 						acl.DefaultEnterpriseMeta().PartitionOrDefault(): {
@@ -286,7 +282,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			},
 			want: &structs.ServiceConfigResponse{
 				MeshGateway: noneMeshGW, // Merged from proxy-defaults + service-defaults
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -308,13 +304,12 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			name: "proxy upstream mesh-gateway inherits value from node-service",
 			args: args{
 				scReq: &structs.ServiceConfigRequest{
-					Name:        "sid",
-					UpstreamIDs: uids,
+					Name:                 "sid",
+					UpstreamServiceNames: uids,
 
 					// MeshGateway from NodeService is received in the request
 					MeshGateway: remoteMeshGW,
 				},
-				upstreamIDs: uids,
 				entries: &ResolvedServiceConfigSet{
 					ServiceDefaults: map[structs.ServiceID]*structs.ServiceConfigEntry{
 						sid: {
@@ -328,7 +323,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 				},
 			},
 			want: &structs.ServiceConfigResponse{
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -350,11 +345,10 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 			name: "proxy upstream mesh-gateway inherits value from service-defaults override",
 			args: args{
 				scReq: &structs.ServiceConfigRequest{
-					Name:        "sid",
-					UpstreamIDs: uids,
-					MeshGateway: localMeshGW, // applied 2nd
+					Name:                 "sid",
+					UpstreamServiceNames: uids,
+					MeshGateway:          localMeshGW, // applied 2nd
 				},
-				upstreamIDs: uids,
 				entries: &ResolvedServiceConfigSet{
 					ServiceDefaults: map[structs.ServiceID]*structs.ServiceConfigEntry{
 						sid: {
@@ -374,7 +368,7 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 				},
 			},
 			want: &structs.ServiceConfigResponse{
-				UpstreamIDConfigs: structs.OpaqueUpstreamConfigs{
+				UpstreamConfigs: structs.OpaqueUpstreamConfigs{
 					{
 						Upstream: wildcard,
 						Config: map[string]interface{}{
@@ -471,12 +465,11 @@ func Test_ComputeResolvedServiceConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ComputeResolvedServiceConfig(tt.args.scReq, tt.args.upstreamIDs,
-				false, tt.args.entries, nil)
+			got, err := ComputeResolvedServiceConfig(tt.args.scReq, tt.args.entries, nil)
 			require.NoError(t, err)
 			// This is needed because map iteration is random and determines the order of some outputs.
-			sort.Slice(got.UpstreamIDConfigs, func(i, j int) bool {
-				return got.UpstreamIDConfigs[i].Upstream.ServiceName.Name < got.UpstreamIDConfigs[j].Upstream.ServiceName.Name
+			sort.Slice(got.UpstreamConfigs, func(i, j int) bool {
+				return got.UpstreamConfigs[i].Upstream.ServiceName.Name < got.UpstreamConfigs[j].Upstream.ServiceName.Name
 			})
 			require.Equal(t, tt.want, got)
 		})
